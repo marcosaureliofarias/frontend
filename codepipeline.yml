@@ -1,0 +1,270 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Sets up cloudfront
+
+Parameters:
+  EnvName:
+    Default: hi-front
+    Type: String
+
+  Provider:
+    Default: GitHub
+    Type: String
+  
+  ProviderRepo:
+    Default: spa_ezops_test
+    Type: String
+
+  ProviderBranch:
+    Default: master
+    Type: String
+
+  ProviderToken:
+    Type: String
+    NoEcho: true
+
+  Owner:
+    Default: iagomussel
+    Type: String
+
+  TypeProject:
+    Default: static-iago
+    Type: String
+  
+Resources:
+  CloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    Properties:
+      RoleName: !Sub cfn-${AWS::StackName}
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": { "Service": [ "cloudformation.amazonaws.com" ]},
+            "Action": [ "sts:AssumeRole" ]
+          }]
+        }
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - iam:*
+                  - ssm:*
+                  - s3:*
+                  - cloudfront:*
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub cb-${AWS::StackName}
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": { "Service": [ "codebuild.amazonaws.com" ]},
+            "Action": [ "sts:AssumeRole" ]
+          }]
+        }
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - ec2:*
+                  - s3:*
+                  - ssm:*
+                  - cloudfront:*
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub cp-${AWS::StackName}
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": { "Service": [ "codepipeline.amazonaws.com" ]},
+            "Action": [ "sts:AssumeRole" ]
+          }]
+        }
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: arn:aws:s3:::*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - cloudformation:*
+                  - cloudwatch:*
+                  - events:*
+                  - iam:PassRole
+                  - ec2:*
+                  - cloudfront:*
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties: 
+      BucketName: !Sub ${TypeProject}-${EnvName}-website
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref AWS::StackName
+      ServiceRole: !Ref CodeBuildServiceRole
+      Artifacts:
+        Location: !Ref ArtifactBucket
+        Type: "S3"
+      Source:
+        Location: !Sub ${ArtifactBucket}/source.zip
+        Type: "S3"
+        BuildSpec: !Sub |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - aws s3 sync dist s3://${EnvName}-${TypeProject}-bucket/
+                - CLOUDFRONT_ID=`aws ssm get-parameter --region ${AWS::Region} --with-decryption --name /CLIENT/${EnvName}/CLOUDFRONT_ID --output text --query Parameter.Value` 
+                - echo $CLOUDFRONT_ID
+                - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths '/*'
+      Environment:
+        ComputeType: "BUILD_GENERAL1_LARGE"
+        Image: "aws/codebuild/standard:5.0"
+        Type: "LINUX_CONTAINER"
+        PrivilegedMode: true
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub ${TypeProject}-${EnvName}
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: App
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: '1'
+                Provider: !Ref Provider
+              Configuration:
+                Owner: !Ref Owner
+                Repo: !Ref ProviderRepo
+                Branch: !Ref ProviderBranch
+                OAuthToken: !Ref ProviderToken
+              OutputArtifacts:
+                - Name: App
+              RunOrder: 1
+
+        - Name: ChangeSet
+          Actions:
+            - Name: CreateS3BucketChangeSet
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: '1'
+                Provider: CloudFormation
+              Configuration:
+                ChangeSetName: Deploy
+                ActionMode: CHANGE_SET_REPLACE
+                StackName: !Sub ${EnvName}-${TypeProject}-service-s3-bucket
+                Capabilities: CAPABILITY_NAMED_IAM
+                TemplatePath: App::devops/service-s3-bucket.yml
+                RoleArn: !GetAtt CloudFormationExecutionRole.Arn
+                ParameterOverrides: !Sub |
+                  {
+                    "EnvName": "${EnvName}",
+                    "TypeProject": "${TypeProject}"
+                  }
+              RunOrder: 1
+              InputArtifacts:
+                - Name: App
+
+            - Name: ExecuteS3BucketChangeSet
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: '1'
+                Provider: CloudFormation
+              Configuration:
+                ChangeSetName: Deploy
+                ActionMode: CHANGE_SET_EXECUTE
+                StackName: !Sub ${EnvName}-${TypeProject}-service-s3-bucket
+                RoleArn: !GetAtt CloudFormationExecutionRole.Arn
+              RunOrder: 2
+
+            - Name: CreateCloudfrontChangeSet
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: '1'
+                Provider: CloudFormation
+              Configuration:
+                ChangeSetName: Deploy
+                ActionMode: CHANGE_SET_REPLACE
+                StackName: !Sub ${EnvName}-${TypeProject}-service-cloudfront
+                Capabilities: CAPABILITY_NAMED_IAM
+                TemplatePath: App::devops/service-cloudfront.yml
+                RoleArn: !GetAtt CloudFormationExecutionRole.Arn
+                ParameterOverrides: !Sub |
+                  {
+                    "EnvName": "${EnvName}",
+                    "TypeProject": "${TypeProject}"
+                  }
+              RunOrder: 2
+              InputArtifacts:
+                - Name: App
+
+            - Name: ExecuteCloudfrontChangeSet
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: '1'
+                Provider: CloudFormation
+              Configuration:
+                ChangeSetName: Deploy
+                ActionMode: CHANGE_SET_EXECUTE
+                StackName: !Sub ${EnvName}-${TypeProject}-service-cloudfront
+                RoleArn: !GetAtt CloudFormationExecutionRole.Arn
+              RunOrder: 3
+
+        - Name: Build
+          Actions:
+            - Name: Build
+              InputArtifacts:
+                - Name: App
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: '1'
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+                PrimarySource: App
+              RunOrder: 1

@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Sets up Cloudfront Service
+
+Parameters:
+  EnvName:
+    Type: String
+
+  CustomSiteName:
+    Type: String
+    Default: S3-client-cloudfront
+  
+  TypeProject:
+    Type: String
+
+Resources:
+  CfnDistribution:
+    Type: 'AWS::CloudFront::Distribution'
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName:
+              Fn::ImportValue: !Sub "${EnvName}-${TypeProject}-S3WebSiteHostingUrl"
+            Id: !Ref CustomSiteName
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+              OriginSSLProtocols:
+                - TLSv1
+        Enabled: true
+        Aliases:
+          - iago-portifolio.dev.ezops.com.br
+        CustomErrorResponses:
+        - ErrorCachingMinTTL: 10
+          ErrorCode: 404
+          ResponseCode: 200
+          ResponsePagePath: /index.html
+        HttpVersion: http2
+        PriceClass: PriceClass_All
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          Compress: false
+          TargetOriginId: !Ref CustomSiteName
+          SmoothStreaming: false
+          ForwardedValues:
+            QueryString: true
+            Cookies:
+              Forward: all
+          ViewerProtocolPolicy: redirect-to-https
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+          MinimumProtocolVersion: TLSv1.1_2016
+
+  SsmCloudfrontId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /CLIENT/${EnvName}/CLOUDFRONT_ID
+      Value: !Ref CfnDistribution
+      Type: String

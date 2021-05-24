@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Sets up ecs service bucket
+
+Parameters:
+  EnvName:
+    Type: String
+
+  TypeProject:
+    Type: String
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub ${EnvName}-${TypeProject}-bucket
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration: 
+        ErrorDocument: index.html
+        IndexDocument: index.html
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties: 
+      Bucket: !Ref S3Bucket
+      PolicyDocument: 
+        Statement: 
+          - 
+            Action: 
+              - "s3:GetObject"
+            Effect: "Allow"
+            Resource: 
+              Fn::Join: 
+                - ""
+                - 
+                  - "arn:aws:s3:::"
+                  - 
+                    Ref: "S3Bucket"
+                  - "/*"
+            Principal: "*"
+
+Outputs:
+  S3WebSiteHostingUrl:
+    Value: !Select [1, !Split ["//", !GetAtt S3Bucket.WebsiteURL]]
+    Export:
+      Name: !Sub ${EnvName}-${TypeProject}-S3WebSiteHostingUrl
