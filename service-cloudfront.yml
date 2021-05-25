@@ -29,7 +29,7 @@ Resources:
                 - TLSv1
         Enabled: true
         Aliases:
-          - iago-portifolio.dev.ezops.com.br
+          - marcos-front.dev.ezops.com.br
         CustomErrorResponses:
         - ErrorCachingMinTTL: 10
           ErrorCode: 404
