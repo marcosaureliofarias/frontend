@@ -20,7 +20,7 @@ Resources:
         IgnorePublicAcls: false
         RestrictPublicBuckets: false
       WebsiteConfiguration: 
-        ErrorDocument: error.html
+        ErrorDocument: index.html
         IndexDocument: index.html
 
   S3BucketPolicy:
@@ -47,4 +47,4 @@ Outputs:
   S3WebSiteHostingUrl:
     Value: !Select [1, !Split ["//", !GetAtt S3Bucket.WebsiteURL]]
     Export:
-      Name: front-marcos
+      Name: !Sub ${EnvName}-${TypeProject}-S3WebSiteHostingUrl

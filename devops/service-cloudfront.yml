@@ -19,7 +19,7 @@ Resources:
       DistributionConfig:
         Origins:
           - DomainName:
-              Fn::ImportValue: front-marcos-marcos-front-website.s3.amazonaws.com
+              Fn::ImportValue: !Sub "${EnvName}-${TypeProject}-S3WebSiteHostingUrl"
             Id: !Ref CustomSiteName
             CustomOriginConfig:
               HTTPPort: 80
@@ -28,8 +28,6 @@ Resources:
               OriginSSLProtocols:
                 - TLSv1
         Enabled: true
-        Aliases:
-          - marcos-front.dev.ezops.com.br
         CustomErrorResponses:
         - ErrorCachingMinTTL: 10
           ErrorCode: 404
