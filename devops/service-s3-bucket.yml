@@ -47,4 +47,4 @@ Outputs:
   S3WebSiteHostingUrl:
     Value: !Select [1, !Split ["//", !GetAtt S3Bucket.WebsiteURL]]
     Export:
-      Name: www.exemplo.com
+      Name: !Sub ${EnvName}-${TypeProject}-S3WebSiteHostingUrl
