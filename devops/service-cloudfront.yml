@@ -19,7 +19,7 @@ Resources:
       DistributionConfig:
         Origins:
           - DomainName:
-              Fn::ImportValue: front-marcos-marcos-front-website.s3.amazonaws.com
+              Fn::ImportValue: marcos-front-front-marcos-bucket.s3.amazonaws.com
             Id: !Ref CustomSiteName
             CustomOriginConfig:
               HTTPPort: 80
