@@ -47,4 +47,4 @@ Outputs:
   S3WebSiteHostingUrl:
     Value: !Select [1, !Split ["//", !GetAtt S3Bucket.WebsiteURL]]
     Export:
-      Name:  marcos-front-front-marcos-bucket.s3.amazonaws.com
+      Name: front-marcos
