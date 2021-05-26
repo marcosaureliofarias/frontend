@@ -19,7 +19,7 @@ Resources:
       DistributionConfig:
         Origins:
           - DomainName:
-              Fn::ImportValue: marcos-front
+              Fn::ImportValue: front-marcos
             Id: !Ref CustomSiteName
             CustomOriginConfig:
               HTTPPort: 80
