@@ -3,7 +3,7 @@ Description: Sets up cloudfront
 
 Parameters:
   EnvName:
-    Default: hi-front
+    Default: marcos-front
     Type: String
 
   Provider:
@@ -11,11 +11,11 @@ Parameters:
     Type: String
   
   ProviderRepo:
-    Default: spa_ezops_test
+    Default: frontend
     Type: String
 
   ProviderBranch:
-    Default: master
+    Default: main
     Type: String
 
   ProviderToken:
@@ -23,11 +23,11 @@ Parameters:
     NoEcho: true
 
   Owner:
-    Default: iagomussel
+    Default: marcosaureliofarias
     Type: String
 
   TypeProject:
-    Default: static-iago
+    Default: front-marcos
     Type: String
   
 Resources:
@@ -193,7 +193,7 @@ Resources:
               Configuration:
                 ChangeSetName: Deploy
                 ActionMode: CHANGE_SET_REPLACE
-                StackName: !Sub ${EnvName}-${TypeProject}-service-s3-bucket
+                StackName: front-s3
                 Capabilities: CAPABILITY_NAMED_IAM
                 TemplatePath: App::devops/service-s3-bucket.yml
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
@@ -215,7 +215,7 @@ Resources:
               Configuration:
                 ChangeSetName: Deploy
                 ActionMode: CHANGE_SET_EXECUTE
-                StackName: !Sub ${EnvName}-${TypeProject}-service-s3-bucket
+                StackName: front-s3
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
               RunOrder: 2
 
@@ -228,7 +228,7 @@ Resources:
               Configuration:
                 ChangeSetName: Deploy
                 ActionMode: CHANGE_SET_REPLACE
-                StackName: !Sub ${EnvName}-${TypeProject}-service-cloudfront
+                StackName: front-cloudf
                 Capabilities: CAPABILITY_NAMED_IAM
                 TemplatePath: App::devops/service-cloudfront.yml
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
@@ -250,7 +250,7 @@ Resources:
               Configuration:
                 ChangeSetName: Deploy
                 ActionMode: CHANGE_SET_EXECUTE
-                StackName: !Sub ${EnvName}-${TypeProject}-service-cloudfront
+                StackName: front-cloudf
                 RoleArn: !GetAtt CloudFormationExecutionRole.Arn
               RunOrder: 3
 
