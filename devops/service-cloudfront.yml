@@ -19,7 +19,7 @@ Resources:
       DistributionConfig:
         Origins:
           - DomainName:
-              Fn::ImportValue: !Sub "${EnvName}-${TypeProject}-S3WebSiteHostingUrl"
+              Fn::ImportValue: www.exemplo.com
             Id: !Ref CustomSiteName
             CustomOriginConfig:
               HTTPPort: 80
